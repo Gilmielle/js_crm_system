@@ -1,4 +1,10 @@
 document.addEventListener('DOMContentLoaded', async () => {
+  const tbody = document.querySelector('tbody');
+  const modal = document.querySelector('.clients__modal');
+  const modalAddChange = document.querySelector('.modal__add-change-client');
+  const modalDel = document.querySelector('.modal__del-client');
+  const loading = document.querySelector('.loading ');
+
   // classList - классы необходимо задавать через массив,
   // attribute - атрибуты через объект,
   // где ключ - это название атрибута, а значение - значение атрибута
@@ -30,34 +36,33 @@ document.addEventListener('DOMContentLoaded', async () => {
     const response = await fetch(link);
     const data = await response.json();
     return data;
-  };
+  }
 
   async function createPage(link) {
     let clients = await sortByID(link)
     createClientTable(clients);
     addTableListeners(link);
-    const modal = document.querySelector('.clients__modal');
-    addModalListeners(modal, link);
-    createAddStudentBtn(modal);
+    addModalListeners(link);
+    createAddStudentBtn();
     searchClients(link);
-    addDelBtnListener(modal, link);
-  };
+    addDelBtnListener(link);
+    if(location.hash) {
+      const clientId = location.hash.replace('#', '')
+      await openFilledModal(clientId);
+    }
+  }
 
   function createClientTable(clients) {
-    const table = document.querySelector('.table');
-    const tbody = document.querySelector('tbody');
-    if(tbody !== null) {
-      table.removeChild(tbody);
-    }
-
-    const tableBody = createElement('tbody', {
-      classList: ['table__body'],
-    }, table);
+    loading.classList.add('loading_done');
+    const tableRows = document.querySelectorAll('.table__row');
+    tableRows.forEach(row => {
+      row.remove();
+    });
 
     clients.forEach(client => {
       const tableRow = createElement('tr', {
         classList: ['table__row'],
-      }, tableBody);
+      }, tbody);
 
       const idCell = createElement('td', {
         classList: ['table__cell'],
@@ -127,12 +132,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       const actionButtons = createActionButtons(actionsCell, client.id);
     });
-    console.log(clients)
-  };
+  }
 
   function getFullName(client) {
     return String(client.surname + ' ' + client.name + ' ' + client.lastName);
-  };
+  }
 
   function getDateAndTime(client) {
     let [date, time] = client.split('T');
@@ -148,7 +152,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       timeFormatted,
       dateTimeFormatted
     }
-  };
+  }
 
   function createContactButtons(contacts, parent) {
     for(let i = 0; i < contacts.length; i++) {
@@ -182,14 +186,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     if(contacts.length > 4) {
       createMoreContactsBtn(parent, contacts.length - 4);
     }
-  };
+  }
 
   function createContactsPopup(contact) {
-    const popup = createElement('span', {
-      classList: ['tulltip__popup'],
-      textContent: contact.type + ': ',
-    });
-    
     if (contact.type !== 'Other') {
       const popup = createElement('span', {
         classList: ['tulltip__popup'],
@@ -214,22 +213,19 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       return popup;
     } else {
-      const [type, value] = contact.value.split(':');
-
       const popup = createElement('span', {
         classList: ['tulltip__popup'],
-        textContent: type + ': ',
+        textContent: 'Другое: ',
       });
 
-      const popupValue = createElement('a', {
+      const popupValue = createElement('span', {
         classList: ['tulltip__popup-value'],
-        textContent: value.trim(),
-        href: value.trim(),
+        textContent: contact.value,
       }, popup);
 
       return popup;
     }
-  };
+  }
 
   function createMoreContactsBtn(parent, contactsQuantity) {
     const hiddenElements = parent.querySelectorAll('.contacts-list__item_hidden');
@@ -246,13 +242,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         hiddenElement.classList.remove('contacts-list__item_hidden')
       })
     })
-  };
+  }
 
   function createActionButtons(parent, id) {
-    const modal = document.querySelector('.clients__modal');
-    const modalAddChange = document.querySelector('.modal__add-change-client');
-    const modalDel = document.querySelector('.modal__del-client');
-
     const changeBtn = createElement('button', {
       classList: ['btn', 'change-btn'],
       attribute: {
@@ -270,11 +262,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }, changeBtn);
 
     changeBtn.addEventListener('click', async function() {
-      modal.classList.add('modal_active');
-      modalAddChange.classList.remove('modal__add-change-client_inactive');
-      modalDel.classList.add('del-client_inactive');
-      modalAddChange.dataset.target = id;
-      await fillForm(modal, id);
+      await openFilledModal(id);
     });
     
     const deleteBtn = createElement('button', {
@@ -299,24 +287,35 @@ document.addEventListener('DOMContentLoaded', async () => {
       modalDel.classList.remove('del-client_inactive');
       modalDel.dataset.target = id;
     });
-  };
+  }
 
-  function addDelBtnListener(modal, link) {
+  async function openFilledModal(id) {
+    loading.classList.remove('loading_done');
+    modal.classList.add('modal_active');
+    modalAddChange.classList.remove('modal__add-change-client_inactive');
+    modalDel.classList.add('del-client_inactive');
+    modalAddChange.dataset.target = id;
+    window.location.hash = id;
+    await fillForm(id);
+    loading.classList.add('loading_done');
+  }
+
+  function addDelBtnListener(link) {
     const delBtn = modal.querySelector('.del-client__submit-btn');
     delBtn.addEventListener('click', async function(evt) {
       evt.preventDefault();
-      const id = modal.querySelector('.modal__del-client').dataset.target;
+      const id = modalDel.dataset.target;
       const delLink = link + '/' + id;
       await fetch(delLink, {
         method: 'DELETE',
       });
       modal.classList.remove('modal_active')
       const newArray = await getData(link);
-      updateTable(newArray);
+      createClientTable(newArray);
     });
-  };
+  }
 
-  async function fillForm(modal, id) {
+  async function fillForm(id) {
     const link = 'http://localhost:3000/api/clients';
     const clientLink = link + '/' + id;
     const client = await getData(clientLink)
@@ -340,7 +339,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const contacts = client.contacts;
     for(let i = 0; i < contacts.length; i++) {
-      createAddContactField(modal);
+      createAddContactField();
       const contactListItems = document.querySelectorAll('.contacts__item');
       const selectedTypeField = contactListItems[i].querySelector('.choices__item--selectable');
       selectedTypeField.dataset.value = contacts[i].type;
@@ -351,8 +350,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
       const selectedValueField = contactListItems[i].querySelector('.contacts__input');
       selectedValueField.value = contacts[i].value;
-      const delContactBtn = contactListItems[i].querySelector('.contacts__delete-btn');
-      delContactBtn.style.display = 'flex';
     };
 
     saveBtn.classList.add('change-client-btn');
@@ -362,7 +359,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const modalDelBtn = modal.querySelector('.client-form__del-btn')
     modalDelBtn.classList.remove('client-form__del-btn_inactive');
 
-  };
+  }
 
    function addTableListeners(link) {
     const filterSpans = document.querySelectorAll('.table-filter__text');
@@ -386,7 +383,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         idCounter--;
       }
 
-      updateTable(newArray);
+      createClientTable(newArray);
     });
 
     document.getElementById('client-fullname').addEventListener('click', async () => {
@@ -403,7 +400,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         nameCounter--;
       }
 
-      updateTable(newArray);
+      createClientTable(newArray);
     });
 
     document.getElementById('client-add-datetime').addEventListener('click', async () => {
@@ -420,7 +417,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         changeCounter--;
       }
 
-      updateTable(newArray);
+      createClientTable(newArray);
     });
 
     document.getElementById('client-change-datetime').addEventListener('click', async () => {
@@ -437,9 +434,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         updateCounter--;
       }
 
-      updateTable(newArray);
+      createClientTable(newArray);
     });
-  };
+  }
 
   async function sortByID(link) {
     const clients = await getData(link);
@@ -455,7 +452,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         return 0;
       })
     return newArray;
-  };
+  }
 
   async function sortByFullName(link) {
     const clients = await getData(link);
@@ -473,7 +470,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         return 0;
       });
     return newArray;
-  };
+  }
 
   async function sortByAddDatetime(link) {
     const clients = await getData(link);
@@ -481,7 +478,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       .slice()
       .sort((first, second) => sortByDate(first.createdAt, second.createdAt));
     return newArray;
-  };
+  }
 
   async function sortByChangeDatetime(link) {
     const clients = await getData(link);
@@ -489,7 +486,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       .slice()
       .sort((first, second) => sortByDate(first.updatedAt, second.updatedAt));
     return newArray;
-  };
+  }
 
   function sortByDate(first, second) {
     const firstElement = getDateAndTime(first);
@@ -504,7 +501,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       return 1;
     }
     return 0;
-  };
+  }
 
   function changeSortIndicators(filters, icons, id, counter) {
     filters.forEach(el => {
@@ -523,14 +520,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     } else {
       targetIcon.classList.remove('table-filter__icon_ascending');
     }
-  };
-
-  function updateTable(array) {
-    const tableBody = document.querySelector('.table__body');
-    const table = document.querySelector('.table');
-    table.removeChild(tableBody);
-    createClientTable(array);
-  };
+  }
 
   function createSvg(viewBox, width, height, fillColor, pathD) {
     const xmlns = 'http://www.w3.org/2000/svg';
@@ -546,12 +536,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     svg.append(path);
 
     return svg;
-  };
+  }
 
-  function createAddStudentBtn(modal) {
+  function createAddStudentBtn() {
     const container = document.querySelector('.clients__container');
-    const modalAddChange = document.querySelector('.modal__add-change-client');
-    const modalDel = document.querySelector('.modal__del-client');
 
     const addStudentBtn = createElement('button', {
       textContent: 'Добавить клиента',
@@ -567,103 +555,65 @@ document.addEventListener('DOMContentLoaded', async () => {
       modalAddChange.classList.remove('modal__add-change-client_inactive');
       modalDel.classList.add('del-client_inactive');
     });
-  };
+  }
 
   function searchClients(link) {
     const search = document.getElementById('search-form__input');
     let timeoutID;
 
     search.addEventListener('input', async function(evt) {
-      let value = evt.target.value.toLowerCase();
+      const value = evt.target.value.toLowerCase();
+      const url = `${link}?search=${value}`;
       clearTimeout(timeoutID);
-      const clients = await getData(link);
-      timeoutID = setTimeout(findClients(clients, value), 300);
-    });
-  };
 
-  function findClients(array, value) {
-    let foundClients = array
-      .slice()
-      .filter(el => {
-        const includesID = el.id.includes(value);
-        const includesName = getFullName(el).toLowerCase().includes(value);
-        const includesContact = el.contacts.some((contact) => {
-          return contact.value.includes(value);
-        })
-        return includesID || includesName || includesContact;
-      });
-    updateTable(foundClients);
-  };
-  
-  function addModalListeners(modal, link) {
+      loading.classList.remove('loading_done');
+      timeoutID = setTimeout(async () => {
+        const clients = await getData(url);
+        createClientTable(clients);
+      }, 300);
+    });
+  }
+ 
+  function addModalListeners(link) {
     const saveBtn = modal.querySelector('.client-form__submit-btn');
     const modalDelBtn = modal.querySelector('.client-form__del-btn')
     
     // закрытие модала и возвращение его компонентов в исходное состояние
     document.addEventListener('click', function(evt) {
-      closeModal(evt, modal);
+      closeModal(evt);
     });
+
     // плавный сдвиг лейблов
     const inputs = document.querySelectorAll('.client-form__input');
-    
-    inputs.forEach(input => {
-      input.addEventListener('focus', function(evt) {
-        const targetID = evt.target.id;
-        const label = document.querySelector(`[for=${targetID}]`);
-        label.classList.add('client-form__label_active');
-      });
-
-      input.addEventListener('focusout', function(evt) {
-        if(input.value.trim().length <= 0) {
-          const targetID = evt.target.id;
-          const label = document.querySelector(`[for=${targetID}]`);
-          label.classList.remove('client-form__label_active');
-        }
-      });
-    });
+    inputs.forEach(input => moveInputLabel(input));
 
     // кнопка добавить контакт
     const addContactBtn = modal.querySelector('.client-form__contacts-btn');
     addContactBtn.addEventListener('click', () => {
       const contacts = modal.querySelectorAll('.contacts__item');
-      createAddContactField(modal);
+      createAddContactField();
       if (contacts.length < 9) {
         addContactBtn.style.display = 'flex';
       } else {
         addContactBtn.style.display = 'none';
       };
-
-      // отображение и скрытие кнопки удалить контакт
-      const inputs = modal.querySelectorAll('.contacts__input');
-      inputs.forEach(input => {
-        input.addEventListener('change', function() {
-          const parent = input.parentNode;
-          const delBtn = parent.querySelector('.contacts__delete-btn');
-          if(input.value.trim().length > 0) {
-            delBtn.classList.add('contacts__delete-btn_active');
-          } else {
-            delBtn.classList.remove('contacts__delete-btn_active');
-          };
-        });
-      });
     });
 
     // кнопка удалить клиента 
     modalDelBtn.addEventListener('click', async function(evt) {
-        evt.preventDefault();
-        const id = modal.querySelector('.modal__add-change-client').dataset.target;
-        const delLink = link + '/' + id;
-        await fetch(delLink, {
-          method: 'DELETE',
-        });
-        modal.classList.remove('modal_active');
-        closeModal(evt, modal);
-        const newArray = await getData(link);
-        updateTable(newArray);
+      evt.preventDefault();
+      const id = modalAddChange.dataset.target;
+      await deleteClient(id, link);
+      
+      modal.classList.remove('modal_active');
+      closeModal(evt);
+      const newArray = await getData(link);
+      createClientTable(newArray);
     });
 
     // сохранение данных формы и обновление таблицы
     saveBtn.addEventListener('click', async function(evt) {
+      loading.classList.remove('loading_done');
       evt.preventDefault();
       const form = evt.target.parentNode;
       const client = formValidator(form);
@@ -677,25 +627,44 @@ document.addEventListener('DOMContentLoaded', async () => {
         if(response.status === 200 || response.status === 201) {
           clearForm(form);
           const newArray = await getData(link);
-          updateTable(newArray);
+          createClientTable(newArray);
         } else {
-          let errorText;
-          if(response.statusText) {
-            errorText = 'Ошибка: ' + response.statusText;
-          } else {
-            errorText = 'Что-то пошло не так...';
-          }
-          const error = makeError(errorText, evt.target, form);
-          error.classList.add('invalid-feedback_server')
+          throwServerError(response, evt, form);
         };
       };
+      loading.classList.add('loading_done');
     });
-  };
+  }
 
-  function closeModal(evt, modal) {
+  function throwServerError(response, evt, form) {
+    let errorText;
+    if(response.statusText) {
+      errorText = 'Ошибка: ' + response.statusText;
+    } else {
+      errorText = 'Что-то пошло не так...';
+    }
+    const error = makeError(errorText, evt.target, form);
+    error.classList.add('invalid-feedback_server');
+  }
+
+  function moveInputLabel(input) {
+    input.addEventListener('focus', function(evt) {
+      const targetID = evt.target.id;
+      const label = document.querySelector(`[for=${targetID}]`);
+      label.classList.add('client-form__label_active');
+    });
+
+    input.addEventListener('focusout', function(evt) {
+      if(input.value.trim().length <= 0) {
+        const targetID = evt.target.id;
+        const label = document.querySelector(`[for=${targetID}]`);
+        label.classList.remove('client-form__label_active');
+      }
+    });
+  }
+
+  function closeModal(evt) {
     const form = modal.querySelector('.client-form');
-    const modalAddChange = document.querySelector('.modal__add-change-client');
-    const modalDel = document.querySelector('.modal__del-client');
     const title = modal.querySelector('.modal__title');
     const clientIDField = document.querySelector('.modal__client-id');
     const labels = document.querySelectorAll('.client-form__label');
@@ -724,10 +693,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         error.remove();
       });
       clearForm(form);
+      location.hash = '';
     };
-  };
+  }
 
-  function createAddContactField(modal) {
+  function createAddContactField() {
     const contactsWrapper = modal.querySelector('.client-form__contacts');
     contactsWrapper.classList.add('client-form__contacts_active')
     const contactsList = modal.querySelector('.contacts');
@@ -775,7 +745,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     refreshSelectStyles();
 
     return contactWrapper;
-  };
+  }
 
   function createSelect(contactWrapper) {
     const contactSelect = createElement('select', {
@@ -824,7 +794,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         value: 'Other',
       }
     }, contactSelect);
-  };
+  }
 
   function refreshSelectStyles() {
     const elements = document.getElementsByName('contacts__select');
@@ -835,7 +805,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         shouldSort: false,
       });
     });
-  };
+  }
 
   function formValidator(form) {
     const errors = document.querySelectorAll('.invalid-feedback');
@@ -890,7 +860,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if(client.name !== undefined && client.surname !== undefined && contactListItems.length === client.contacts.length) {
       return client;
     }
-  };
+  }
 
   function makeError(text, child, parent) {
     let error = createElement('span', {
@@ -900,7 +870,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     parent.insertBefore(error, child);
 
     return error;
-  };
+  }
 
   function clearForm(form) {
     const inputs = form.querySelectorAll('.client-form__input');
@@ -919,9 +889,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const contactsList = form.querySelector('.contacts');
     contactsList.classList.remove('contacts_active');
 
-    const modal = document.querySelector('.modal');
     modal.classList.remove('modal_active');
-  };
+  }
 
   function constructDateString(time) {
     const year = time.getUTCFullYear();
@@ -932,7 +901,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const seconds = getBidigitate(time.getSeconds());
 
     return String(year + '-' + month + '-' + day + 'T' + hours + ':' + minutes + ':' + seconds);
-  };
+  }
 
   function getMonth(month) {
     if (month < 9) {
@@ -941,14 +910,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       month = month + 1;
     }
     return month;
-  };
+  }
 
   function getBidigitate(number) {
     if (number < 10) {
       number = '0' + number;
     } 
     return number;
-  };
+  }
 
   async function pushNewClient(client, link) {
     const now = new Date();
@@ -964,10 +933,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     });
     return createdClient;
-  };
+  }
 
   async function changeClient(client, link) {
-    const id = document.querySelector('.modal__add-change-client').dataset.target;
+    const id = modalAddChange.dataset.target;
     const clientLink = link + '/' + id;
     const now = new Date();
     const updatedAt = constructDateString(now);
@@ -981,7 +950,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     });
     return updatedClient;
-  };
+  }
+
+  async function deleteClient(id, link) {
+    const delLink = `${link}/${id}`;
+    await fetch(delLink, {
+      method: 'DELETE',
+    });
+  }
 
   await createPage('http://localhost:3000/api/clients');
 })

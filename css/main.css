@@ -20,8 +20,13 @@
   line-height: 33px;
 }
 
+.clients__table-wrapper {
+  overflow-x: auto;
+}
+
 .clients__table {
   width: 100%;
+  min-width: 728px;
   margin-bottom: 40px;
   border-collapse: collapse;
 }
@@ -127,6 +132,28 @@
   100% {
     transform: rotate(360deg);
   }
+}
+
+.loading {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(255, 255, 255, 0.6);
+  overflow: auto;
+  z-index: 100;
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 0.3s ease-in-out, visibility 0.3s linear;
+}
+
+.loading_done {
+  opacity: 0;
+  visibility: hidden;
 }
 
 .table__cell:first-child {
@@ -317,11 +344,14 @@
 }
 
 .modal {
-  display: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease-in-out, visibility 0.3s linear;
 }
 
 .modal_active {
-  display: block;
+  opacity: 1;
+  visibility: visible;
 }
 
 .modal__table {
@@ -631,7 +661,7 @@
 }
 
 .contacts__delete-btn {
-  display: none;
+  display: flex;
   position: absolute;
   right: 0;
   align-items: center;
@@ -642,10 +672,6 @@
   border: 1px solid #C8C5D1;
   cursor: pointer;
   transition: border-color 0.3s ease-in-out;
-}
-
-.contacts__delete-btn_active {
-  display: flex;
 }
 
 .contacts__delete-btn:hover {
@@ -742,13 +768,23 @@
   color: var(--color-accent);
 }
 
-@media (max-width: 1024px) {
+@media (max-width: 1350px) {
+  .table__time {
+    display: block;
+  }
+
+  .change-btn {
+    margin-right: 0;
+  }
+}
+
+@media (max-width: 1250px) {
   .clients__container {
     padding: 20px;
   }
 
   .col-fullname {
-    width: 234px;
+    width: 270px;
   }
 
   .col-add,
@@ -760,35 +796,23 @@
     width: 120px;
   }
 
-  .table-filter__text {
-    width: min-content;
-  }
-
-  .change-btn {
-    margin-right: 15px;
-  }
-}
-
-@media (max-width: 868px) {
-  .col-fullname {
-    width: 180px;
+  .col-actions {
+    width: 105px;
   }
 
   .table__date {
     display: block;
     margin-right: 0;
   }
+}
 
-  .table__time {
-    display: block;
+@media (max-width: 925px) {
+  .col-fullname {
+    width: 180px;
   }
 
   .col-add,
   .col-change {
     width: 80px;
-  }
-
-  .change-btn {
-    margin-right: 0;
   }
 }
